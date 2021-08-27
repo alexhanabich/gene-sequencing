@@ -108,22 +108,21 @@ class GeneSequencing:
 		#    ***o*
 		#    ***o
 	def populate_tables_banded(self):
+		diff = len(self.seq2) - len(self.seq1)
+
 		for i in range(1, self.num_row):
 			first_idx = (MAXINDELS + 1) - i if (MAXINDELS + 1) - i > 0 else 0
 			rev_i = (self.num_row - 1) - i
-			last_idx = MAXINDELS + rev_i + len(self.seq2) - len(self.seq1) if MAXINDELS + rev_i < 6 else 6
-			print('rev', rev_i)
-			print(last_idx)
+			last_idx = MAXINDELS + rev_i + diff if MAXINDELS + rev_i + diff < 6 else 6
 			for j in range(first_idx, last_idx + 1):
-				left = math.inf if j < 0 or self.table[i][j - 1] == None else self.table[i][j - 1] + INDEL
-				top = math.inf if j > (self.num_col - 2) or i < 0 or self.table[i - 1][j + 1] == None else self.table[i - 1][j + 1] + INDEL
-				diagonal = math.inf if j <= (MAXINDELS - i) else self.table[i - 1][j]
-				print('diag', diagonal)
-				if self.seq1[i - 1] == self.seq2[j + i - MAXINDELS - 1]:
+				left = math.inf if j == first_idx or self.table[i][j - 1] == None else self.table[i][j - 1] + INDEL
+				top = math.inf if j == (self.num_col - 1) or self.table[i - 1][j + 1] == None else self.table[i - 1][j + 1] + INDEL
+				diagonal = self.table[i - 1][j]
+				seq_idx = j + (i - MAXINDELS) - 1 if j + (i - MAXINDELS) - 1 < len(self.seq2) - 1 else len(self.seq2) - 1 
+				if self.seq1[i - 1] == self.seq2[seq_idx]:
 					diagonal += MATCH
 				else:
 					diagonal += SUB
-				print('diag after', diagonal)
 				self.fill_cells(left, top, diagonal, i, j)
 
 
@@ -132,25 +131,43 @@ class GeneSequencing:
 		i = self.num_row - 1
 		j = self.num_col - 1
 		score = self.table[i][j]
-		# alignment1 = collections.deque([])
-		# alignment2 = collections.deque([])
+		alignment1 = collections.deque([])
+		alignment2 = collections.deque([])
 		# seq1 and seq2 indexes are 1 shorter than the table
-		# while self.prev[i][j] != None:
-		# 	if self.prev[i][j] == 0:
-		# 		alignment1.appendleft('-')
-		# 		alignment2.appendleft(self.seq2[j - 1])
-		# 		j -= 1
-		# 	elif self.prev[i][j] == 1:
-		# 		alignment1.appendleft(self.seq1[i - 1])
-		# 		alignment2.appendleft('-')
-		# 		i -= 1
-		# 	else:
-		# 		alignment1.appendleft(self.seq1[i - 1])
-		# 		alignment2.appendleft(self.seq2[j - 1])
-		# 		i -= 1
-		# 		j -= 1
-		# return score, ''.join(alignment1), ''.join(alignment2)
-		return score, 'test', 'test'
+		while self.prev[i][j] != None:
+			if self.prev[i][j] == 0:
+				alignment1.appendleft('-')
+				alignment2.appendleft(self.seq2[j - 1])
+				j -= 1
+			elif self.prev[i][j] == 1:
+				alignment1.appendleft(self.seq1[i - 1])
+				alignment2.appendleft('-')
+				i -= 1
+			else:
+				alignment1.appendleft(self.seq1[i - 1])
+				alignment2.appendleft(self.seq2[j - 1])
+				i -= 1
+				j -= 1
+		return score, ''.join(alignment1), ''.join(alignment2)
+
+
+	def extract_solution_banded(self):
+		i = self.num_row - 1
+		j = self.num_col - 1
+		print(self.num_row, i, j)
+		inf = False
+		print(i,j)
+		while self.table[i][j] == None:
+			j -= 1
+			if j < -20:
+				inf = True
+		if inf == False:
+			score = self.table[i][j]
+		else:
+			score = math.inf
+		alignment1 = 'testesttest'
+		alignment2 = 'testtesttest'
+		return score, alignment1, alignment2
 
 
 	def align(self, seq1, seq2, banded, align_length):
@@ -160,11 +177,15 @@ class GeneSequencing:
 		self.num_row = len(seq1) + 1 if len(seq1) + 1 < align_length else align_length + 1
 		self.num_col = len(seq2) + 1 if len(seq2) + 1 < align_length else align_length + 1
 		if banded:
+			# if abs(len(self.seq2) - len(self.seq1)) > 3:
+			# 	return {'align_cost':math.inf, 'seqi_first100':'testtesttest', 'seqj_first100':'testtesttest'}
 			self.table, self.prev = self.create_tables_banded()
 			self.populate_tables_banded()
+			score, alignment1, alignment2 = self.extract_solution_banded()
 		else:
 			self.table, self.prev = self.create_tables()
 			self.populate_tables()
-		score, alignment1, alignment2 = self.extract_solution()	
+			score, alignment1, alignment2 = self.extract_solution()
+		if score == None:
+			score = math.inf
 		return {'align_cost':score, 'seqi_first100':alignment1, 'seqj_first100':alignment2}
-
