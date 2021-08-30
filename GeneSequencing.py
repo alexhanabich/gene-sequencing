@@ -154,13 +154,15 @@ class GeneSequencing:
 	def extract_solution_banded(self):
 		i = self.num_row - 1
 		j = self.num_col - 1
-		print(self.num_row, i, j)
+		print('table', len(self.table), len(self.table[0]))
+		print(self.num_row, self.num_col, i, j)
 		inf = False
-		print(i,j)
 		while self.table[i][j] == None:
 			j -= 1
-			if j < -20:
+			print('j', j)
+			if j < 0:
 				inf = True
+				break
 		if inf == False:
 			score = self.table[i][j]
 		else:
