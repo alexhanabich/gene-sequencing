@@ -20,6 +20,9 @@ MAXINDELS = 3
 MATCH = -3
 INDEL = 5
 SUB = 1
+LEFT = 0
+TOP = 1
+DIAGONAL = 2
 
 class GeneSequencing:
 
@@ -36,13 +39,13 @@ class GeneSequencing:
 		cost = 0
 		for i in range(self.num_col):
 			self.table[0][i] = cost
-			self.prev[0][i] = 0
+			self.prev[0][i] = LEFT
 			cost += 5
 		# fill base values vertically for table and prev
 		cost = 0
 		for i in range(self.num_row):
 			self.table[i][0] = cost
-			self.prev[i][0] = 1
+			self.prev[i][0] = TOP
 			cost += 5
 		# set prev[0][0] to None so signal the end of traversal
 		self.prev[0][0] = None
@@ -54,16 +57,17 @@ class GeneSequencing:
 		table = [[None for i in range(self.num_col)] for j in range(self.num_row)]
 		prev = [[None for i in range(self.num_col)] for j in range(self.num_row)]
 		cost = 0
-		for i in range(MAXINDELS, (MAXINDELS * 2 + 1)):
+		for i in range(MAXINDELS + 1):
 			table[0][i] = cost
-			prev[0][i] = 0
+			prev[0][i] = LEFT
 			cost += 5
 		# fill base values vertically for table and prev
 		cost = 0
 		for i in range(MAXINDELS + 1):
-			table[i][MAXINDELS - i] = cost
-			prev[i][MAXINDELS - i] = 1
+			table[i][0] = cost
+			prev[i][0] = TOP
 			cost += 5
+		# set prev[0][0] to None so signal the end of traversal
 		prev[0][0] = None
 		return table, prev
 
@@ -71,13 +75,13 @@ class GeneSequencing:
 	def fill_cells(self, left, top, diagonal, i, j):
 		if left <= top and left <= diagonal:
 			self.table[i][j] = left
-			self.prev[i][j] = 0
+			self.prev[i][j] = LEFT
 		elif top <= diagonal:
 			self.table[i][j] = top
-			self.prev[i][j] = 1
+			self.prev[i][j] = TOP
 		else:
 			self.table[i][j] = diagonal
-			self.prev[i][j] = 2
+			self.prev[i][j] = DIAGONAL
 
 
 	def populate_tables(self):
@@ -95,36 +99,51 @@ class GeneSequencing:
 
 
 	 # visual representation of the table, o represents the diagonal val if it was a n by m table
-		#       o***
-		#      *o***
-		#     **o***
-		#    ***o***
-		#    ***o***
-		#    ***o***
-		#    ***o***
-		#    ***o***
-		#    ***o***
-		#    ***o**
-		#    ***o*
-		#    ***o
-	def populate_tables_banded(self):
-		diff = len(self.seq2) - len(self.seq1)
+	 	# init loop
+		#0    o***
+		#1    *o***
+		#2    **o***
+		#3    ***o***
 
-		for i in range(1, self.num_row):
-			first_idx = (MAXINDELS + 1) - i if (MAXINDELS + 1) - i > 0 else 0
-			rev_i = (self.num_row - 1) - i
-			last_idx = MAXINDELS + rev_i + diff if MAXINDELS + rev_i + diff < 6 else 6
-			for j in range(first_idx, last_idx + 1):
-				left = math.inf if j == first_idx or self.table[i][j - 1] == None else self.table[i][j - 1] + INDEL
-				top = math.inf if j == (self.num_col - 1) or self.table[i - 1][j + 1] == None else self.table[i - 1][j + 1] + INDEL
-				diagonal = self.table[i - 1][j]
-				seq_idx = j + (i - MAXINDELS) - 1 if j + (i - MAXINDELS) - 1 < len(self.seq2) - 1 else len(self.seq2) - 1 
-				if self.seq1[i - 1] == self.seq2[seq_idx]:
+		# second loop
+		#4    ***o***
+		#5    ***o***
+		#6    ***o***
+		#7    ***o***
+		#8    ***o***
+		#9    ***o**
+		#10   ***o*
+		#11   ***o
+	def populate_tables_banded(self):
+		# init loop
+		for i in range(1, MAXINDELS + 1):
+			temp_num_col = i + MAXINDELS + 1
+			for j in range(1, temp_num_col):
+				# compute left top and diagonal costs
+				left = self.table[i][j - 1] + INDEL
+				top = math.inf if self.table[i - 1][j] == None else self.table[i - 1][j] + INDEL
+				diagonal = self.table[i - 1][j - 1]
+				if self.seq1[i - 1] == self.seq2[j - 1]:
 					diagonal += MATCH
 				else:
 					diagonal += SUB
 				self.fill_cells(left, top, diagonal, i, j)
-
+		# second loop	
+		for i in range(MAXINDELS + 1, self.num_row):
+			temp_i = i - MAXINDELS + 1
+			temp_num_col = min(self.num_col, len(self.seq2) - temp_i)
+			for j in range(temp_num_col):
+				# compute left top and diagonal costs
+				print(i,j,temp_num_col)
+				print(self.table)
+				left = self.table[i][j - 1] + INDEL if  j > 0 else math.inf
+				top = self.table[i - 1][j + 1] + INDEL if j + 1 < temp_num_col else math.inf
+				diagonal = self.table[i - 1][j]
+				if self.seq1[i - 1] == self.seq2[j - 1]:
+					diagonal += MATCH
+				else:
+					diagonal += SUB
+				self.fill_cells(left, top, diagonal, i, j)
 
 
 	def extract_solution(self):
@@ -182,6 +201,7 @@ class GeneSequencing:
 			# if abs(len(self.seq2) - len(self.seq1)) > 3:
 			# 	return {'align_cost':math.inf, 'seqi_first100':'testtesttest', 'seqj_first100':'testtesttest'}
 			self.table, self.prev = self.create_tables_banded()
+			print(self.table)
 			self.populate_tables_banded()
 			score, alignment1, alignment2 = self.extract_solution_banded()
 		else:
